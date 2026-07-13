@@ -25,6 +25,15 @@ interface Problem {
 
 import defaultPuzzles from "./puzzles.json";
 
+const unpromotedToPromoted: Record<string, string> = {
+  P: "PP",
+  L: "PL",
+  N: "PN",
+  S: "PS",
+  B: "PB",
+  R: "PR",
+};
+
 const MOVES: Record<string, { dc: number; dr: number; slide?: boolean }[]> = {
   P: [{ dc: 0, dr: -1 }],
   L: [{ dc: 0, dr: -1, slide: true }],
@@ -134,7 +143,7 @@ function getValidMoves(c: number, r: number, board: Record<string, Piece>) {
     if (m.slide) {
       let nc = c + m.dc * mul;
       let nr = r + m.dr * mul;
-      while (nc >= 0 && nc <= 5 && nr >= 0 && nr <= 5) {
+      while (nc >= 0 && nc <= 4 && nr >= 0 && nr <= 4) {
         let target = board[`${nc},${nr}`];
         if (target) {
           if (target.enemy !== p.enemy) res.push(`${nc},${nr}`);
@@ -147,7 +156,7 @@ function getValidMoves(c: number, r: number, board: Record<string, Piece>) {
     } else {
       let nc = c + m.dc * mul;
       let nr = r + m.dr * mul;
-      if (nc >= 0 && nc <= 5 && nr >= 0 && nr <= 5) {
+      if (nc >= 0 && nc <= 4 && nr >= 0 && nr <= 4) {
         let target = board[`${nc},${nr}`];
         if (!target || target.enemy !== p.enemy) {
           res.push(`${nc},${nr}`);
@@ -205,8 +214,8 @@ function getLegalMoves(board: Record<string, Piece>, isEnemy: boolean) {
   }
 
   if (isEnemy) {
-    for (let c = 0; c < 6; c++) {
-      for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 5; c++) {
+      for (let r = 0; r < 5; r++) {
         const pos = `${c},${r}`;
         if (!board[pos]) {
           const newBoard = { ...board };
@@ -222,6 +231,50 @@ function getLegalMoves(board: Record<string, Piece>, isEnemy: boolean) {
   return legalMoves;
 }
 
+const Dot = ({
+  pos,
+  ...props
+}: { pos: string } & React.HTMLAttributes<HTMLDivElement>) => {
+  let classes =
+    "absolute w-[5px] h-[5px] md:w-[6px] md:h-[6px] bg-[#FF5A5A] rounded-full ";
+  if (pos === "T") classes += "top-1 left-1/2 -translate-x-1/2";
+  if (pos === "B") classes += "bottom-1 left-1/2 -translate-x-1/2";
+  if (pos === "L") classes += "left-1 top-1/2 -translate-y-1/2";
+  if (pos === "R") classes += "right-1 top-1/2 -translate-y-1/2";
+  if (pos === "TL") classes += "top-1.5 left-1.5";
+  if (pos === "TR") classes += "top-1.5 right-1.5";
+  if (pos === "BL") classes += "bottom-1.5 left-1.5";
+  if (pos === "BR") classes += "bottom-1.5 right-1.5";
+  if (pos === "NNL") classes += "top-1 left-[25%]";
+  if (pos === "NNR") classes += "top-1 right-[25%]";
+  return <div className={classes} {...props} />;
+};
+
+const Slide = ({
+  pos,
+  ...props
+}: { pos: string } & React.HTMLAttributes<HTMLDivElement>) => {
+  let classes = "absolute bg-[#FF5A5A] ";
+  if (pos === "T")
+    classes += "w-[2px] h-2.5 top-0 left-1/2 -translate-x-1/2 rounded-b-full";
+  if (pos === "B")
+    classes +=
+      "w-[2px] h-2.5 bottom-0 left-1/2 -translate-x-1/2 rounded-t-full";
+  if (pos === "L")
+    classes += "w-2.5 h-[2px] left-0 top-1/2 -translate-y-1/2 rounded-r-full";
+  if (pos === "R")
+    classes += "w-2.5 h-[2px] right-0 top-1/2 -translate-y-1/2 rounded-l-full";
+  if (pos === "TL")
+    classes += "w-[7px] h-[2px] top-1.5 left-0.5 -rotate-45 rounded-r-full";
+  if (pos === "TR")
+    classes += "w-[7px] h-[2px] top-1.5 right-0.5 rotate-45 rounded-l-full";
+  if (pos === "BL")
+    classes += "w-[7px] h-[2px] bottom-1.5 left-0.5 rotate-45 rounded-r-full";
+  if (pos === "BR")
+    classes += "w-[7px] h-[2px] bottom-1.5 right-0.5 -rotate-45 rounded-l-full";
+  return <div className={classes} {...props} />;
+};
+
 const PieceView = ({
   type,
   enemy,
@@ -232,42 +285,56 @@ const PieceView = ({
   selected?: boolean;
 }) => {
   const meta = {
-    K: { icon: "玉", title: "玉" },
-    R: { icon: "飛", title: "飛" },
-    B: { icon: "角", title: "角" },
-    G: { icon: "金", title: "金" },
-    S: { icon: "銀", title: "銀" },
-    N: { icon: "桂", title: "桂" },
-    L: { icon: "香", title: "香" },
-    P: { icon: "歩", title: "歩" },
-    PR: { icon: "龍", title: "龍", promoted: true },
-    PB: { icon: "馬", title: "馬", promoted: true },
-    PS: { icon: "全", title: "全", promoted: true },
-    PN: { icon: "圭", title: "圭", promoted: true },
-    PL: { icon: "杏", title: "杏", promoted: true },
-    PP: { icon: "と", title: "と", promoted: true },
+    K: {
+      icon: "🦁",
+      title: "王",
+      dots: ["T", "B", "L", "R", "TL", "TR", "BL", "BR"],
+    },
+    R: { icon: "🦒", title: "飛", slides: ["T", "B", "L", "R"] },
+    B: { icon: "🐘", title: "角", slides: ["TL", "TR", "BL", "BR"] },
+    G: { icon: "🐶", title: "金", dots: ["T", "L", "R", "B", "TL", "TR"] },
+    S: { icon: "🐱", title: "銀", dots: ["T", "TL", "TR", "BL", "BR"] },
+    N: { icon: "🐰", title: "桂", dots: ["NNL", "NNR"] },
+    L: { icon: "🐗", title: "香", slides: ["T"] },
+    P: { icon: "🐤", title: "歩", dots: ["T"] },
+    PR: { icon: "🐉", title: "龍", slides: ["T", "B", "L", "R"], dots: ["TL", "TR", "BL", "BR"], promoted: true },
+    PB: { icon: "🐴", title: "馬", slides: ["TL", "TR", "BL", "BR"], dots: ["T", "B", "L", "R"], promoted: true },
+    PS: { icon: "🐱", title: "全", dots: ["T", "L", "R", "B", "TL", "TR"], promoted: true },
+    PN: { icon: "🐰", title: "圭", dots: ["T", "L", "R", "B", "TL", "TR"], promoted: true },
+    PL: { icon: "🐗", title: "杏", dots: ["T", "L", "R", "B", "TL", "TR"], promoted: true },
+    PP: { icon: "🐔", title: "と", dots: ["T", "L", "R", "B", "TL", "TR"], promoted: true },
   }[type];
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center ${type === "K" ? "w-full" : "w-[90%]"} aspect-square rounded-[10px] border-[3px] transition-all select-none
+      className={`relative flex flex-col items-center justify-center w-[90%] aspect-square rounded-[10px] transition-all select-none
        ${
          type === "K"
-           ? "bg-[#FFF4D2] border-[#D9A300] shadow-[0_3px_0_#B38600]"
-           : enemy
-             ? "bg-[#FFF4D2] border-[#634C32] shadow-[0_3px_0_#D0B99B]"
-             : "bg-[#FFFFFF] border-[#634C32] shadow-[0_3px_0_#D0B99B]"
+           ? enemy
+             ? "bg-[#FFF4D2] border-[5px] border-[#634C32] shadow-[0_3px_0_#B38600] text-[#806000]"
+             : "bg-[#FFF4D2] border-[3px] border-[#D9A300] shadow-[0_3px_0_#B38600] text-[#806000]"
+           : `${enemy ? "bg-[#FFF4D2]" : "bg-[#FFFFFF]"} border-[3px] border-[#634C32] shadow-[0_3px_0_#D0B99B]`
        }
        ${enemy ? "rotate-180" : ""} 
-       ${selected ? `scale-[1.15] z-10 box-shadow-xl ${type === "K" ? "border-[#FF5A5A]" : "border-[#FF5A5A]"}` : "hover:scale-105 cursor-pointer z-0"}`}
+       ${selected ? `scale-[1.15] z-10 box-shadow-xl border-[#FF5A5A]` : "hover:scale-105 cursor-pointer z-0"}`}
     >
       <span
-        className={`text-2xl md:text-3xl font-bold leading-none drop-shadow-sm
-        ${type === "K" ? "text-[#806000]" : meta.promoted ? (enemy ? "text-[#000000]" : "text-[#FF5A5A]") : "text-[#634C32]"}
-        `}
+        className={`${type === "K" ? "text-[24px] md:text-[32px]" : "text-[20px] md:text-[28px]"} leading-none drop-shadow-sm`}
+        style={{ transform: "translateY(-2px)" }}
       >
         {meta.icon}
       </span>
+      <span
+        className={`hidden md:inline-block text-[10px] font-bold leading-none ${type === "K" ? "text-[#806000]" : meta.promoted ? "text-[#FF5A5A]" : "text-[#634C32]"}`}
+      >
+        {meta.title}
+      </span>
+      {meta.dots?.map((d) => (
+        <Dot key={d} pos={d} />
+      ))}
+      {meta.slides?.map((s) => (
+        <Slide key={s} pos={s} />
+      ))}
     </div>
   );
 };
@@ -286,94 +353,59 @@ export default function App() {
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [solved, setSolved] = useState(false);
+  const [solvedPuzzles, setSolvedPuzzles] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem("solvedPuzzles");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("solvedPuzzles", JSON.stringify(Array.from(solvedPuzzles)));
+  }, [solvedPuzzles]);
+
   const [animating, setAnimating] = useState(false);
-  const [combo, setCombo] = useState(0);
-  const [showCombo, setShowCombo] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [mistakeCount, setMistakeCount] = useState(0);
-  const [puzzleResults, setPuzzleResults] = useState<Record<number, { solved: boolean; mistakes: number }>>({});
-  const [showResultsModal, setShowResultsModal] = useState(false);
-  const [isRandomMode, setIsRandomMode] = useState(false);
-  const [promotionPending, setPromotionPending] = useState<{
-    from: string | null;
-    to: string;
-    handIdx?: number;
-    pieceType: PieceType;
-    promotedPieceType: PieceType;
-  } | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(300);
-  const [timerActive, setTimerActive] = useState(false);
-  const [showTimerEnd, setShowTimerEnd] = useState(false);
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (timerActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timerActive && timeLeft === 0) {
-      setTimerActive(false);
-      setShowTimerEnd(true);
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timeLeft]);
-
-  const toggleTimer = () => {
-    if (timerActive) {
-      setTimerActive(false);
-    } else {
-      setTimeLeft(300);
-      setTimerActive(true);
-      setShowTimerEnd(false);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   const [editPieceInfo, setEditPieceInfo] = useState<{
     type: PieceType | "delete";
     enemy: boolean;
   }>({ type: "P", enemy: false });
 
-  const [puzzles, setPuzzles] = useState<Problem[]>(() => {
-    const saved = localStorage.getItem("shogi_puzzles");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse saved puzzles:", e);
-      }
-    }
-    return defaultPuzzles as Problem[];
-  });
-  const isDataLoaded = useRef(false);
+  const [puzzles, setPuzzles] = useState<Problem[]>(defaultPuzzles as Problem[]);
+  const [totalMistakes, setTotalMistakes] = useState(0);
+  const [puzzleMistakes, setPuzzleMistakes] = useState<Record<number, number>>({});
+  const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
+  const [timerActive, setTimerActive] = useState<boolean>(false);
+  const [showTimeUp, setShowTimeUp] = useState<boolean>(false);
+  const [mistakenInRun, setMistakenInRun] = useState<Set<number>>(new Set());
+  const [solvedInRun, setSolvedInRun] = useState<Set<number>>(new Set());
+  const [hasWrappedAround, setHasWrappedAround] = useState(false);
 
   useEffect(() => {
-    // Also try to fetch from API in case there are server-side updates, 
-    // but localStorage takes priority for user-modified data if we want it strictly saved.
-    // However, the user said "it returns to pre-loading data", so let's stick to localStorage for user actions.
-    isDataLoaded.current = true;
-  }, []);
+    let interval: NodeJS.Timeout;
+    if (timerActive && timerSeconds !== null && timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => (prev !== null ? prev - 1 : null));
+      }, 1000);
+    } else if (timerActive && timerSeconds === 0) {
+      setTimerActive(false);
+      setShowTimeUp(true);
+      setTimeout(() => setShowTimeUp(false), 3000);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timerSeconds]);
 
   useEffect(() => {
-    if (puzzles.length > 0) {
-      localStorage.setItem("shogi_puzzles", JSON.stringify(puzzles));
-      fetch("/api/save-puzzles", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ puzzles }),
-      }).catch(err => console.error("Failed to sync puzzles to server:", err));
-    }
+    fetch("/api/save-puzzles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ puzzles }),
+    }).catch(e => console.error("Failed to sync puzzles:", e));
   }, [puzzles]);
 
   useEffect(() => {
@@ -435,11 +467,11 @@ export default function App() {
               "このPDFデータは詰め将棋（1手詰）の問題集です。\n" +
               "すべての問題を抽出し、JSONで出力してください。\n" +
               "問題の作成ルール：\n" +
-              "6x6マスの盤面として出力してください。" +
-              "元の将棋が9x9の場合、例えば王がいる場所が2段目の2筋なら、その周辺(x:0~5, y:0~5の6x6)などをうまく6x6の盤面にマップして、王の手前と奥の空間が収まるように座標変換してください。\n" +
+              "5x5マスの盤面として出力してください。" +
+              "元の将棋が9x9の場合、例えば王がいる場所が2段目の2筋なら、その周辺(x:0~4, y:0~4の5x5)などをうまく5x5の盤面にマップして、王の手前と奥の空間が収まるように座標変換してください。\n" +
               "座標は左上のマスを(x:0, y:0)とします。王手(1手詰め)の課題なので、敵の玉は上部(y=0や1)に配置されてるのが一般的です。\n" +
               "駒(pieces配列)のプロパティ：\n" +
-              "x: 0~5, y: 0~5, type: \"K\", \"R\", \"B\", \"G\", \"S\", \"N\", \"L\", \"P\", \"PR\", \"PB\", \"PS\", \"PN\", \"PL\", \"PP\"\n" +
+              "x: 0~4, y: 0~4, type: \"K\", \"R\", \"B\", \"G\", \"S\", \"N\", \"L\", \"P\", \"PR\", \"PB\", \"PS\", \"PN\", \"PL\", \"PP\"\n" +
               "成駒も抽出してください（PR=龍, PB=馬, PS=成銀, PN=成桂, PL=成香, PP=と金）。\n" +
               "enemy: プレイヤーから見て敵（詰められる側）の駒かどうか(boolean)\n\n" +
               "持ち駒(hand配列)：味方の持ち駒の種類の文字列配列。例: [\"G\", \"S\"]\n\n" +
@@ -563,9 +595,9 @@ export default function App() {
     if (!selected) return [];
     if (selected.from === null) {
       const res = [];
-      for (let i = 0; i < 36; i++) {
-        const c = i % 6;
-        const r = Math.floor(i / 6);
+      for (let i = 0; i < 25; i++) {
+        const c = i % 5;
+        const r = Math.floor(i / 5);
         if (!board[`${c},${r}`]) {
           res.push(`${c},${r}`);
         }
@@ -576,6 +608,14 @@ export default function App() {
       return getValidMoves(sc, sr, board);
     }
   }, [selected, board]);
+
+  const [pendingPromotion, setPendingPromotion] = useState<{
+    from: string;
+    to: string;
+    handIdx?: number;
+    pieceType: PieceType;
+    isPromotionZone: boolean;
+  } | null>(null);
 
   const executeMove = (
     from: string | null,
@@ -591,9 +631,7 @@ export default function App() {
 
     const isSelfCheck = isKingInCheck(tempBoard, false);
     if (isSelfCheck) {
-      setErrorMsg("王手されてるにゃ！");
-      setSelected(null);
-      setTimeout(() => setErrorMsg(null), 1500);
+      handleMistake("王手されてるにゃ！");
       return;
     }
 
@@ -615,17 +653,12 @@ export default function App() {
 
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       setSolved(true);
-      setCorrectCount(c => c + 1);
-      setPuzzleResults(prev => ({
-        ...prev,
-        [puzzleIdx]: {
-          solved: true,
-          mistakes: prev[puzzleIdx]?.mistakes || 0
+      if (puzzles[puzzleIdx]) {
+        setSolvedPuzzles(prev => new Set(prev).add(puzzles[puzzleIdx].id));
+        if (timerActive) {
+          setSolvedInRun(prev => new Set(prev).add(puzzles[puzzleIdx].id));
         }
-      }));
-      setCombo(c => c + 1);
-      setShowCombo(true);
-      setTimeout(() => setShowCombo(false), 2000);
+      }
       setErrorMsg(null);
       setSelected(null);
     } else {
@@ -643,27 +676,8 @@ export default function App() {
       setAnimating(true);
 
       if (!isCheck) {
-        setCombo(0);
-        setMistakeCount(m => m + 1);
-        setPuzzleResults(prev => ({
-          ...prev,
-          [puzzleIdx]: {
-            solved: prev[puzzleIdx]?.solved || false,
-            mistakes: (prev[puzzleIdx]?.mistakes || 0) + 1
-          }
-        }));
         setTimeout(() => {
-          setErrorMsg("王手じゃないにゃ...");
-          setTimeout(() => {
-            if (timerActive) {
-              nextPuzzle();
-            } else {
-              setBoard(currentPuzzle.board);
-              setHand(currentPuzzle.hand);
-            }
-            setErrorMsg(null);
-            setAnimating(false);
-          }, 1000);
+          handleMistake("王手じゃないにゃ...");
         }, 400);
         return;
       }
@@ -675,14 +689,14 @@ export default function App() {
             (rep) =>
               rep.to === to &&
               rep.from !== "hand" &&
-              tBoard[rep.from]?.type !== "K"
+              tBoard[rep.from]?.type !== "K",
           );
           if (!reply) {
             reply = replies.find((rep) => rep.to === to);
           }
           if (!reply) {
             reply = replies.find(
-              (rep) => rep.from !== "hand" && tBoard[rep.from].type === "K"
+              (rep) => rep.from !== "hand" && tBoard[rep.from].type === "K",
             );
           }
           if (!reply) {
@@ -707,26 +721,7 @@ export default function App() {
         }
 
         setTimeout(() => {
-          setErrorMsg("防がれたにゃ...");
-          setCombo(0);
-          setMistakeCount(m => m + 1);
-          setPuzzleResults(prev => ({
-            ...prev,
-            [puzzleIdx]: {
-              solved: prev[puzzleIdx]?.solved || false,
-              mistakes: (prev[puzzleIdx]?.mistakes || 0) + 1
-            }
-          }));
-          setTimeout(() => {
-            if (timerActive) {
-              nextPuzzle();
-            } else {
-              setBoard(currentPuzzle.board);
-              setHand(currentPuzzle.hand);
-            }
-            setErrorMsg(null);
-            setAnimating(false);
-          }, 1000);
+          handleMistake("防がれたにゃ...");
         }, 600);
       }, 600);
     }
@@ -772,45 +767,22 @@ export default function App() {
         return;
       }
 
-      const unpromotedToPromoted: Record<string, string> = {
-        P: "PP",
-        L: "PL",
-        N: "PN",
-        S: "PS",
-        B: "PB",
-        R: "PR",
-      };
-
-      let finalPieceType = selected.pieceType;
-      let needsPromotionChoice = false;
-
-      if (selected.from) {
+      if (selected.from && unpromotedToPromoted[selected.pieceType]) {
         const fromR = parseInt(selected.from.split(",")[1]);
         const toR = r;
-        const promotionZone = 2; // Ranks 0, 1, 2
-        // If piece moves from or to the promotion zone and has a promoted form
-        if ((fromR <= promotionZone || toR <= promotionZone) && unpromotedToPromoted[selected.pieceType]) {
-          const promoteRequired = ((selected.pieceType === "P" || selected.pieceType === "L") && toR === 0) || (selected.pieceType === "N" && toR <= 1);
-          if (promoteRequired) {
-            finalPieceType = unpromotedToPromoted[selected.pieceType] as PieceType;
-          } else {
-            needsPromotionChoice = true;
-          }
-        }
-      }
-
-      if (needsPromotionChoice && !promotionPending) {
-        setPromotionPending({
+        const isPromotionZone = fromR <= 2 || toR <= 2;
+        
+        setPendingPromotion({
           from: selected.from,
           to: key,
           handIdx: selected.handIdx,
           pieceType: selected.pieceType,
-          promotedPieceType: unpromotedToPromoted[selected.pieceType] as PieceType,
+          isPromotionZone
         });
         return;
       }
 
-      executeMove(selected.from, key, selected.handIdx, finalPieceType);
+      executeMove(selected.from, key, selected.handIdx, selected.pieceType);
     } else {
       const p = board[key];
       if (p && !p.enemy) {
@@ -835,181 +807,101 @@ export default function App() {
     }
   };
 
-  const nextPuzzle = () => {
+  const nextPuzzle = (fromMistake = false) => {
     setSolved(false);
     setSelected(null);
-    if (isRandomMode && puzzles.length > 1) {
-      let nextIdx;
-      do {
-        nextIdx = Math.floor(Math.random() * puzzles.length);
-      } while (nextIdx === puzzleIdx);
+    setAnimating(false);
+    setErrorMsg(null);
+    setPendingPromotion(null);
+
+    if (timerActive) {
+      let nextIdx = puzzleIdx + 1;
+      
+      while (nextIdx < puzzles.length) {
+        const id = puzzles[nextIdx]?.id;
+        if (solvedInRun.has(id)) {
+          nextIdx++;
+        } else if (hasWrappedAround && !mistakenInRun.has(id)) {
+          nextIdx++;
+        } else {
+          break;
+        }
+      }
+      
+      if (nextIdx >= puzzles.length) {
+        setHasWrappedAround(true);
+        nextIdx = 0;
+        
+        while (nextIdx < puzzles.length) {
+          const id = puzzles[nextIdx]?.id;
+          if (solvedInRun.has(id)) {
+            nextIdx++;
+          } else if (!mistakenInRun.has(id)) {
+            nextIdx++;
+          } else {
+            break;
+          }
+        }
+        
+        if (nextIdx >= puzzles.length) {
+          setTimerActive(false);
+          setShowTimeUp(true);
+          setTimeout(() => setShowTimeUp(false), 3000);
+          return;
+        }
+      }
+      
       setPuzzleIdx(nextIdx);
     } else {
       setPuzzleIdx((p) => p + 1);
     }
   };
 
+  const handleMistake = (msg: string) => {
+    setTotalMistakes((prev) => prev + 1);
+    if (currentPuzzle) {
+      setPuzzleMistakes((prev) => ({
+        ...prev,
+        [currentPuzzle.id]: (prev[currentPuzzle.id] || 0) + 1
+      }));
+    }
+    setErrorMsg(msg);
+    
+    if (timerActive) {
+      if (currentPuzzle) {
+        setMistakenInRun(prev => new Set(prev).add(currentPuzzle.id));
+      }
+      setTimeout(() => {
+        nextPuzzle(true);
+      }, 1000);
+    } else {
+      setTimeout(() => {
+        setBoard(currentPuzzle?.board || {});
+        setHand(currentPuzzle?.hand || []);
+        setErrorMsg(null);
+        setAnimating(false);
+        setSelected(null);
+        setPendingPromotion(null);
+      }, 1000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,#FFF0C1_0%,#FFF9E6_50%)] bg-[#FFF9E6] flex flex-col items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
       <AnimatePresence>
-        {showResultsModal && (
+        {showTimeUp && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-[110] flex items-center justify-center p-4"
-          >
-            <div className="bg-[#FFFFFF] border-4 border-[#FFADAD] rounded-3xl p-6 shadow-2xl flex flex-col gap-4 max-w-md w-full max-h-[80vh]">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black text-[#634C32]">せいせき詳細</h2>
-                <button onClick={() => setShowResultsModal(false)} className="text-[#634C32] font-bold text-xl hover:text-[#FF5A5A]">✕</button>
-              </div>
-              <div className="overflow-y-auto space-y-2 pr-2">
-                {Object.entries(puzzleResults).filter(([_, result]) => result.mistakes > 0).length === 0 ? (
-                  <div className="text-center text-[#634C32]/60 py-4 font-bold">間違えた問題はないにゃ</div>
-                ) : (
-                  Object.entries(puzzleResults)
-                    .filter(([_, result]) => result.mistakes > 0)
-                    .map(([idxStr, result]) => (
-                    <div key={idxStr} className="flex justify-between items-center bg-[#FFEFEF] p-3 rounded-xl border-2 border-[#FFADAD]">
-                      <div className="font-bold text-[#634C32]">第{parseInt(idxStr) + 1}問</div>
-                      <div className="flex gap-4 font-bold text-sm">
-                        <div className={`${result.solved ? 'text-[#4A7A4A]' : 'text-[#634C32]/50'}`}>
-                          {result.solved ? '正解！' : '未クリア'}
-                        </div>
-                        <div className="text-[#FF5A5A]">
-                          ミス: {result.mistakes}回
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showTimerEnd && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
+            initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4 backdrop-blur-sm"
-            onClick={() => setShowTimerEnd(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/20"
           >
-            <div className="bg-[#FFFFFF] border-8 border-[#FF5A5A] rounded-[40px] p-10 shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
-              <h2 className="text-5xl font-black text-[#FF5A5A] tracking-wider">終了！</h2>
-              <p className="text-xl font-bold text-[#634C32]">5分経過しましたにゃ！</p>
-              <button 
-                onClick={() => setShowTimerEnd(false)}
-                className="mt-4 w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all text-xl"
-              >
-                とじる
-              </button>
+            <div className="bg-white px-10 py-6 rounded-3xl shadow-2xl border-4 border-[#FF5A5A] text-[#FF5A5A] text-5xl md:text-7xl font-bold transform -rotate-6">
+              終了！
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Promotion Dialog */}
-      <AnimatePresence>
-        {promotionPending && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          >
-            <div className="bg-[#FFFFFF] border-4 border-[#F8D38D] rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full">
-              <h2 className="text-2xl font-black text-[#634C32]">成りますか？</h2>
-              <div className="flex gap-4 w-full">
-                <button
-                  onClick={() => {
-                    executeMove(
-                      promotionPending.from,
-                      promotionPending.to,
-                      promotionPending.handIdx,
-                      promotionPending.promotedPieceType
-                    );
-                    setPromotionPending(null);
-                  }}
-                  className="flex-1 py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-xl shadow-[0_4px_0_#e68a8a] active:translate-y-1 active:shadow-none transition-all flex flex-col items-center gap-2"
-                >
-                  <span className="text-4xl leading-none">
-                    {
-                      {
-                        PP: "と",
-                        PL: "杏",
-                        PN: "圭",
-                        PS: "全",
-                        PB: "馬",
-                        PR: "龍",
-                      }[promotionPending.promotedPieceType] || "龍"
-                    }
-                  </span>
-                  <span className="text-lg">成る</span>
-                </button>
-                <button
-                  onClick={() => {
-                    executeMove(
-                      promotionPending.from,
-                      promotionPending.to,
-                      promotionPending.handIdx,
-                      promotionPending.pieceType
-                    );
-                    setPromotionPending(null);
-                  }}
-                  className="flex-1 py-4 bg-[#EAE8E3] hover:bg-[#D9D9D9] text-[#634C32] font-bold rounded-xl shadow-[0_4px_0_#CCCCCC] active:translate-y-1 active:shadow-none transition-all flex flex-col items-center gap-2"
-                >
-                  <span className="text-4xl leading-none">
-                    {
-                      {
-                        P: "歩",
-                        L: "香",
-                        N: "桂",
-                        S: "銀",
-                        B: "角",
-                        R: "飛",
-                      }[promotionPending.pieceType] || "歩"
-                    }
-                  </span>
-                  <span className="text-lg">成らない</span>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showCombo && combo > 1 && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0, y: 50, rotate: -15 }}
-            animate={{ scale: 1.2, opacity: 1, y: 0, rotate: 10 }}
-            exit={{ scale: 0.5, opacity: 0, y: -50 }}
-            className="fixed top-1/4 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"
-          >
-            <div className="relative">
-              <span className="text-7xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#FF5A5A] to-[#D04040] drop-shadow-[0_8px_0_#634C32] italic">
-                {combo}
-              </span>
-              <span className="text-3xl md:text-5xl font-black text-[#634C32] ml-2 drop-shadow-[0_4px_0_#FFFFFF]">
-                連続正解！！
-              </span>
-              <motion.div 
-                animate={{ scale: [1, 1.2, 1] }} 
-                transition={{ repeat: Infinity, duration: 0.5 }}
-                className="absolute -top-10 -right-10 text-5xl"
-              >
-                🔥
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div
@@ -1020,35 +912,37 @@ export default function App() {
             className="w-full max-w-sm bg-[#FFFFFF] rounded-[40px] border-[8px] border-[#F8D38D] shadow-[0_15px_0_#EBC274] flex flex-col items-center p-[30px] relative text-center space-y-6"
           >
             <div className="relative">
-              <div className="text-6xl mb-2 text-[#806000] font-bold bg-[#FFF4D2] border-[4px] border-[#D9A300] shadow-[0_4px_0_#B38600] rounded-xl w-24 h-24 flex items-center justify-center mx-auto">玉</div>
-              <div className="text-3xl absolute -bottom-2 -right-2 text-[#634C32] font-bold bg-[#FFFFFF] border-[3px] border-[#634C32] shadow-[0_3px_0_#D0B99B] rounded-lg w-14 h-14 flex items-center justify-center translate-x-3 translate-y-1 z-10">歩</div>
+              <div className="text-6xl mb-2">🦁</div>
+              <div className="text-4xl absolute -bottom-2 -right-2">🐤</div>
             </div>
             <h1 className="text-3xl font-black text-[#634C32] tracking-tight">
               １手詰にゃう
             </h1>
             <p className="text-[#634C32] font-medium leading-relaxed">
-              漢字の駒で１手詰に挑戦しよう！
+              動物将棋のかわいい駒で
+              <br />
+              １手詰に挑戦しよう！
               <br />
               全{puzzles.length}問！
             </p>
-            <div className="w-full space-y-3">
-              <button
-                onClick={() => setStarted(true)}
-                className="w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
-              >
-                <Play size={20} /> はじめる
-              </button>
-              <button
-                onClick={() => {
-                  setIsRandomMode(true);
-                  setPuzzleIdx(Math.floor(Math.random() * puzzles.length));
-                  setStarted(true);
-                }}
-                className="w-full py-4 bg-[#F8D38D] hover:bg-[#ebc274] text-[#634C32] font-bold rounded-2xl shadow-[0_4px_0_#dca044] active:shadow-[0_0px_0_#dca044] active:translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
-              >
-                ランダムな問題で遊ぶ
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setStarted(true);
+                setPuzzleIdx(0);
+                setPuzzlePage(0);
+                setTotalMistakes(0);
+                setPuzzleMistakes({});
+                setSolvedPuzzles(new Set());
+                setTimerSeconds(null);
+                setTimerActive(false);
+                setMistakenInRun(new Set());
+                setSolvedInRun(new Set());
+                setHasWrappedAround(false);
+              }}
+              className="w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2 text-lg"
+            >
+              <Play size={20} /> はじめる
+            </button>
           </motion.div>
         ) : puzzleIdx >= puzzles.length ? (
           <motion.div
@@ -1062,23 +956,12 @@ export default function App() {
             <p className="text-[#634C32] font-medium">
               おめでとうにゃ！すごい！
             </p>
-            <div className="w-full space-y-3">
-              <button
-                onClick={() => setPuzzleIdx(0)}
-                className="w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2"
-              >
-                <RefreshCcw size={18} /> もう一度遊ぶ
-              </button>
-              <button
-                onClick={() => {
-                  setIsRandomMode(true);
-                  setPuzzleIdx(Math.floor(Math.random() * puzzles.length));
-                }}
-                className="w-full py-4 bg-[#F8D38D] hover:bg-[#ebc274] text-[#634C32] font-bold rounded-2xl shadow-[0_4px_0_#dca044] active:shadow-[0_0px_0_#dca044] active:translate-y-1 transition-all flex items-center justify-center gap-2"
-              >
-                ランダムな問題で遊ぶ
-              </button>
-            </div>
+            <button
+              onClick={() => setPuzzleIdx(0)}
+              className="w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCcw size={18} /> もう一度遊ぶ
+            </button>
           </motion.div>
         ) : (
           <motion.div
@@ -1094,7 +977,7 @@ export default function App() {
                   第 {puzzleIdx + 1} 問：{currentPuzzle.name}
                 </span>
                 <span className="text-lg font-bold text-[#FF7A7A]">
-                  {puzzleIdx + 1}/{puzzles.length}
+                  {puzzleIdx + 1}/10
                 </span>
               </div>
 
@@ -1107,13 +990,65 @@ export default function App() {
                       {errorMsg}
                     </div>
                   )}
+                  {solved && (
+                    <div className="bg-[#C4E4C4] border-2 border-[#8DBF8D] text-[#4A7A4A] font-bold px-6 py-2 rounded-full shadow-lg text-xl flex items-center gap-2 animate-pulse mt-12">
+                      <CheckCircle /> 正解！
+                    </div>
+                  )}
                 </div>
 
+                <AnimatePresence>
+                  {pendingPromotion && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-none w-full"
+                    >
+                      <div className="bg-white/85 p-4 rounded-3xl shadow-xl border-4 border-[#FFADAD]/80 flex flex-col items-center gap-3 backdrop-blur-md pointer-events-auto w-[90%] max-w-[300px]">
+                        <p className="text-lg font-bold text-[#634C32]">成りますか？</p>
+                        <div className="flex gap-4 w-full px-2">
+                          <button
+                            onClick={() => {
+                              const { from, to, pieceType, isPromotionZone, handIdx } = pendingPromotion;
+                              setPendingPromotion(null);
+                              if (isPromotionZone) {
+                                executeMove(from, to, handIdx, unpromotedToPromoted[pieceType] as PieceType);
+                              } else {
+                                handleMistake("そこでは成れないにゃ！");
+                              }
+                            }}
+                            className="flex-1 py-2.5 bg-[#FF5A5A]/90 text-white font-bold rounded-xl shadow-[0_3px_0_rgba(209,61,61,0.9)] active:translate-y-[3px] active:shadow-none transition-all hover:bg-[#ff7070] text-base"
+                          >
+                            はい
+                          </button>
+                          <button
+                            onClick={() => {
+                              const { from, to, pieceType, handIdx } = pendingPromotion;
+                              setPendingPromotion(null);
+                              const toR = parseInt(to.split(",")[1]);
+                              const mustPromote = (pieceType === "P" || pieceType === "L") && toR === 0 || (pieceType === "N" && toR <= 1);
+                              if (mustPromote) {
+                                handleMistake("そこはならなきゃいけないにゃ！");
+                              } else {
+                                executeMove(from, to, handIdx, pieceType);
+                              }
+                            }}
+                            className="flex-1 py-2.5 bg-[#4A7A4A]/90 text-white font-bold rounded-xl shadow-[0_3px_0_rgba(54,94,54,0.9)] active:translate-y-[3px] active:shadow-none transition-all hover:bg-[#5b945b] text-base"
+                          >
+                            いいえ
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* Board */}
-                <div className="grid grid-cols-6 grid-rows-6 gap-[4px] md:gap-[8px] bg-[#C3A16A] p-[8px] md:p-[12px] rounded-[16px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] w-full max-w-[360px] lg:max-w-[420px] aspect-square mx-auto">
-                  {Array.from({ length: 36 }).map((_, i) => {
-                    const c = i % 6;
-                    const r = Math.floor(i / 6);
+                <div className="grid grid-cols-5 grid-rows-5 gap-[4px] md:gap-[8px] bg-[#C3A16A] p-[8px] md:p-[12px] rounded-[16px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] w-full max-w-[360px] aspect-square mx-auto">
+                  {Array.from({ length: 25 }).map((_, i) => {
+                    const c = i % 5;
+                    const r = Math.floor(i / 5);
                     const key = `${c},${r}`;
                     const piece = board[key];
                     const isSelected = selected && selected.from === key;
@@ -1148,200 +1083,174 @@ export default function App() {
 
                 {/* Hand Area */}
                 <div className="mt-6 flex flex-col gap-2">
-                  <div className="flex items-center justify-between ml-1 relative">
+                  <div className="flex items-center ml-1 relative">
                     <h3 className="font-bold text-[#634C32] flex items-center gap-2">
                       持ち駒
                     </h3>
-                    {(timerActive || timeLeft < 300) && (
-                      <div className="absolute left-1/2 -translate-x-1/2 font-bold text-xl text-[#FF5A5A] tabular-nums bg-white px-3 py-1 rounded-xl border-2 border-[#FFADAD] z-10 shadow-sm">
-                        {formatTime(timeLeft)}
-                      </div>
-                    )}
-                    <button 
-                      onClick={toggleTimer}
-                      className={`px-3 py-1.5 rounded-xl font-bold text-sm shadow-sm transition-all active:translate-y-px active:shadow-none ${
-                        timerActive 
-                          ? 'bg-white border-2 border-[#FF5A5A] text-[#FF5A5A] hover:bg-[#FFEFEF]'
-                          : 'bg-[#FFADAD] text-white hover:bg-[#ff9999] shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a]'
-                      }`}
-                    >
-                      {timerActive ? "タイマー停止" : "5分タイマー"}
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 min-h-[72px] bg-[#FFEEDD] p-3 border-[3px] border-dashed border-[#F8D38D] rounded-[24px] relative">
-                    {solved && (
-                      <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                        <div className="bg-[#C4E4C4] border-2 border-[#8DBF8D] text-[#4A7A4A] font-bold px-6 py-2 rounded-full shadow-lg text-xl flex items-center gap-2 animate-pulse">
-                          <CheckCircle /> 正解！
+                    {timerActive && timerSeconds !== null && timerSeconds > 0 && (
+                      <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center">
+                        <div className="text-xl px-4 py-0.5 font-bold rounded-xl border-2 border-[#FFADAD] text-[#FF5A5A] bg-white">
+                          {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
                         </div>
                       </div>
                     )}
-                    {hand.length === 0 && !solved && (
-                      <div className="text-[#634C32]/40 font-bold m-auto">
-                        なし
-                      </div>
-                    )}
-                    {hand.map((p, idx) => {
-                      const isSelected = selected?.handIdx === idx;
-                      return (
-                        <div
-                          key={idx}
-                          className="w-[60px] aspect-square flex items-center justify-center p-0.5"
-                          onClick={() => handleHandClick(idx, p)}
+                    <div className="ml-auto">
+                      {!timerActive ? (
+                        <button
+                          onClick={() => {
+                            setTimerSeconds(300);
+                            setTimerActive(true);
+                            setMistakenInRun(new Set());
+                            setSolvedInRun(new Set());
+                            setHasWrappedAround(false);
+                            setPuzzleIdx(0);
+                          }}
+                          className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-white border-[#FF5A5A] text-[#FF5A5A] hover:bg-[#FFDEDE] transition-all"
                         >
-                          <PieceView
-                            type={p}
-                            enemy={false}
-                            selected={isSelected}
-                          />
-                        </div>
-                      );
-                    })}
+                          ５分タイマー
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setTimerActive(false);
+                            setTimerSeconds(null);
+                          }}
+                          className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-white border-[#FF5A5A] text-[#FF5A5A] hover:bg-[#FFDEDE] transition-all"
+                        >
+                          タイマー停止
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {!solved ? (
+                    <div className="flex flex-wrap gap-2 min-h-[90px] bg-[#FFEEDD] p-3 border-[3px] border-dashed border-[#F8D38D] rounded-[24px]">
+                      {hand.length === 0 && (
+                        <div className="text-[#634C32]/40 font-bold m-auto relative z-10">
+                          なし
+                        </div>
+                      )}
+                      {hand.map((p, idx) => {
+                        const isSelected = selected?.handIdx === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className="w-[60px] aspect-square flex items-center justify-center p-0.5 relative z-10"
+                            onClick={() => handleHandClick(idx, p)}
+                          >
+                            <PieceView
+                              type={p}
+                              enemy={false}
+                              selected={isSelected}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="h-[90px]">
+                      <button
+                        onClick={nextPuzzle}
+                        className="w-full h-full bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-[24px] shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2 text-lg animate-fade-in"
+                      >
+                        次の問題へ <ArrowRight />
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Next Button */}
-                {solved && (
-                  <button
-                    onClick={nextPuzzle}
-                    className="mt-6 w-full py-4 bg-[#FFADAD] hover:bg-[#ff9999] text-white font-bold rounded-2xl shadow-[0_4px_0_#e68a8a] active:shadow-[0_0px_0_#e68a8a] active:translate-y-1 transition-all flex items-center justify-center gap-2 text-lg animate-fade-in"
-                  >
-                    次の問題へ <ArrowRight />
-                  </button>
-                )}
               </div>
             </div>
 
             {/* Status Card (Right) */}
             <div className="w-full max-w-[420px] lg:w-[340px] bg-[#FFFFFF] rounded-[32px] border-[6px] border-[#FFADAD] p-5 flex flex-col gap-4 shadow-sm h-fit">
-              <div className="bg-[#FFADAD] text-white px-4 py-2 rounded-2xl text-sm self-stretch font-bold space-y-1">
-                <div className="flex justify-between items-center mb-1">
-                  <div>今のせいせき</div>
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <div className="bg-[#FFADAD] text-white px-4 py-1 rounded-full text-sm font-bold">
+                    今のせいせき：{puzzleIdx}/{puzzles.length}
+                  </div>
                   <button
-                    onClick={() => {
-                      setCorrectCount(0);
-                      setMistakeCount(0);
-                      setPuzzleResults({});
-                      setCombo(0);
-                      setStarted(false);
-                      setIsRandomMode(false);
-                      setPuzzleIdx(0);
-                      setTimerActive(false);
-                      setTimeLeft(300);
-                    }}
-                    className="bg-white text-[#FF5A5A] px-2 py-1 rounded-lg text-xs hover:bg-[#FFEFEF] active:scale-95 transition-all shadow-sm"
+                    onClick={() => setStarted(false)}
+                    className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-white border-[#FFADAD] text-[#FFADAD] hover:bg-[#FFEFEF] transition-all"
                   >
                     リセット
                   </button>
                 </div>
-                <div className="flex justify-between items-center text-xs opacity-90">
-                  <span>正解した問題数:</span>
-                  <span>{correctCount}問</span>
+                <div className="bg-[#FFDEDE] text-[#FF5A5A] px-4 py-1 rounded-full text-sm self-start font-bold border-2 border-[#FFADAD]">
+                  全体のミス：{totalMistakes}回
                 </div>
-                <div className="flex justify-between items-center text-xs opacity-90">
-                  <span>間違えた回数:</span>
-                  <span>{mistakeCount}回</span>
-                </div>
-                <button 
-                  onClick={() => setShowResultsModal(true)}
-                  className="w-full mt-2 py-1.5 bg-white text-[#FF5A5A] rounded-xl text-xs hover:bg-[#FFEFEF] transition-colors shadow-sm active:translate-y-px active:shadow-none"
-                >
-                  せいせき一覧を見る
-                </button>
+                {currentPuzzle && (puzzleMistakes[currentPuzzle.id] || 0) > 0 && (
+                  <div className="bg-[#FFDEDE] text-[#FF5A5A] px-4 py-1 rounded-full text-sm self-start font-bold border-2 border-[#FFADAD]">
+                    この問題のミス：{puzzleMistakes[currentPuzzle.id]}回
+                  </div>
+                )}
               </div>
-              <div className="w-[120px] h-[120px] bg-[#FFDEDE] rounded-[60px] mx-auto flex justify-center items-center text-6xl border-4 border-[#FFADAD] shadow-sm font-bold text-[#FF5A5A]">
-                玉
+              <div className="w-[120px] h-[120px] bg-[#FFDEDE] rounded-[60px] mx-auto flex justify-center items-center text-6xl border-4 border-[#FFADAD] shadow-sm">
+                🐱
               </div>
-              <div className="bg-[#FFFFFF] border-[3px] border-[#634C32] p-3 rounded-2xl relative text-sm text-[#634C32] font-bold text-center mt-2 shadow-sm">
+              <div className="bg-[#FFFFFF] border-[3px] border-[#634C32] p-3 rounded-2xl relative text-sm text-[#634C32] font-bold text-center mt-2 shadow-sm min-h-[64px] flex items-center justify-center flex-col leading-snug">
                 <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-b-[12px] border-l-transparent border-r-transparent border-b-[#634C32]"></div>
                 <div className="absolute -top-[9px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-[#FFFFFF] z-10"></div>
-                {solved ? (
-                  "やったにゃ！大正解！"
-                ) : (
-                  <>
-                    あと１手でつみだよ！
-                    <br />
-                    どこに置けばいいかにゃ？
-                  </>
-                )}
+                {solved
+                  ? "やったにゃ！大正解！"
+                  : (
+                    <>
+                      あと１手でつみだよ！
+                      <br />
+                      どこに置けばいいかにゃ？
+                    </>
+                  )}
               </div>
 
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-[#634C32] flex items-center gap-2">
-                    もんだい いちらん
-                    <button 
-                      onClick={() => setIsRandomMode(p => !p)}
-                      className={`text-xs px-2 py-0.5 rounded-lg border-2 transition-all font-bold ${
-                        isRandomMode 
-                          ? "bg-purple-500 border-purple-700 text-white hover:bg-purple-600 shadow-inner" 
-                          : "bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200"
-                      }`}
-                    >
-                      ランダム出題: {isRandomMode ? "ON" : "OFF"}
-                    </button>
-                  </h3>
-                  {isEditMode && (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(puzzles, null, 2));
-                        const downloadAnchorNode = document.createElement('a');
-                        downloadAnchorNode.setAttribute("href",     dataStr);
-                        downloadAnchorNode.setAttribute("download", "doubutsu-shogi-puzzles.json");
-                        document.body.appendChild(downloadAnchorNode); // required for firefox
-                        downloadAnchorNode.click();
-                        downloadAnchorNode.remove();
-                        alert("問題データをJSONファイルとしてダウンロードしました！\nこのファイルを使用して、別の環境で「ファイル読み込み」から復元できます。");
-                      }}
-                      className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-[#EAE8E3] border-[#CCCCCC] text-[#634C32] hover:bg-[#D9D9D9] transition-all"
-                    >
-                      データ出力
-                    </button>
-                    <input
-                      type="file"
-                      accept=".json"
-                      ref={jsonFileInputRef}
-                      className="hidden"
-                      onChange={handleJsonUpload}
-                    />
-                    <button
-                      onClick={() => jsonFileInputRef.current?.click()}
-                      className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-[#E1F5FE] border-[#0288D1] text-[#01579B] hover:bg-[#B3E5FC] transition-all"
-                    >
-                      ファイル読込
-                    </button>
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      ref={fileInputRef}
-                      className="hidden"
-                      onChange={handleFileUpload}
-                     />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isImporting}
-                      className={`text-xs px-3 py-1 font-bold rounded-lg border-2 transition-all ${isImporting ? "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#FFF4D2] border-[#D9A300] text-[#806000] hover:bg-[#ffeaaa]"}`}
-                    >
-                      {isImporting ? "読込中..." : "PDFから追加"}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        const jsonStr = JSON.stringify(puzzles, null, 2);
-                        try {
-                          await navigator.clipboard.writeText(jsonStr);
-                          alert("クリップボードに問題データをコピーしました！\n\n【GitHubへ同期する手順】\n1. 左側のファイルツリーから「src/puzzles.json」を開く\n2. 中身をすべて選択して、今コピーしたデータを貼り付ける（上書き）\n3. メニューから「Sync to GitHub」を実行する\n\n※コンテナ内で保存したファイルはGitHub同期の対象にならないため、この手動手順が必要です。");
-                        } catch(e) {
-                          alert("コピーに失敗しました。データ出力ボタンからダウンロードしてください。");
-                        }
-                      }}
-                      className="text-xs px-3 py-1 font-bold flex items-center gap-1 rounded-lg bg-[#EAE8E3] border-2 border-[#DEDCD7] hover:bg-[#DEDCD7] text-[#634C32] transition-colors"
-                    >
-                      <RefreshCcw size={14} />
-                      JSONをコピーして保存（GitHub同期用）
-                    </button>
+                  <h3 className="font-bold text-[#634C32]">もんだい いちらん</h3>
+                  <div className="flex gap-2">
+                    {isEditMode && (
+                      <>
+                        <button
+                          onClick={() => {
+                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(puzzles, null, 2));
+                            const downloadAnchorNode = document.createElement('a');
+                            downloadAnchorNode.setAttribute("href",     dataStr);
+                            downloadAnchorNode.setAttribute("download", "doubutsu-shogi-puzzles.json");
+                            document.body.appendChild(downloadAnchorNode); // required for firefox
+                            downloadAnchorNode.click();
+                            downloadAnchorNode.remove();
+                            alert("問題データをJSONファイルとしてダウンロードしました！\nこのファイルを使用して、別の環境で「ファイル読み込み」から復元できます。");
+                          }}
+                          className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-[#EAE8E3] border-[#CCCCCC] text-[#634C32] hover:bg-[#D9D9D9] transition-all"
+                        >
+                          データ出力
+                        </button>
+                        <input
+                          type="file"
+                          accept=".json"
+                          ref={jsonFileInputRef}
+                          className="hidden"
+                          onChange={handleJsonUpload}
+                        />
+                        <button
+                          onClick={() => jsonFileInputRef.current?.click()}
+                          className="text-xs px-3 py-1 font-bold rounded-lg border-2 bg-[#E1F5FE] border-[#0288D1] text-[#01579B] hover:bg-[#B3E5FC] transition-all"
+                        >
+                          ファイル読み込み
+                        </button>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleFileUpload}
+                         />
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isImporting}
+                          className={`text-xs px-3 py-1 font-bold rounded-lg border-2 transition-all ${isImporting ? "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed" : "bg-[#FFF4D2] border-[#D9A300] text-[#806000] hover:bg-[#ffeaaa]"}`}
+                        >
+                          {isImporting ? "読み込み中..." : "PDFから追加"}
+                        </button>
+                      </>
+                    )}
                   </div>
-                  )}
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {puzzles.slice(puzzlePage * PAGE_SIZE, (puzzlePage + 1) * PAGE_SIZE).map((_, i) => {
@@ -1353,22 +1262,17 @@ export default function App() {
                           setPuzzleIdx(idx);
                           setIsEditMode(false);
                         }}
-                        className={`aspect-square rounded-xl flex flex-col items-center justify-center font-bold text-sm sm:text-base border-2 cursor-pointer hover:opacity-80 transition-opacity
+                        className={`aspect-square rounded-xl flex items-center justify-center font-bold text-sm sm:text-base border-2 cursor-pointer hover:opacity-80 transition-opacity
                         ${
-                          puzzleResults[idx]?.solved
-                            ? idx === puzzleIdx
-                              ? "bg-[#A3E6A3] border-4 border-[#4A7A4A] text-[#2A5A2A]"
-                              : "bg-[#C4E4C4] border-[#8DBF8D] text-[#4A7A4A]"
-                            : idx === puzzleIdx
-                              ? "bg-[#FF5A5A] border-4 border-[#D04040] text-white"
+                          idx === puzzleIdx
+                            ? "bg-[#FFADAD] border-[#FFADAD] text-white"
+                            : solvedPuzzles.has(puzzles[idx]?.id)
+                              ? "bg-[#C4E4C4] border-[#8DBF8D] text-[#4A7A4A]"
                               : "bg-[#FFEFEF] border-[#FFADAD] text-[#FF7A7A]"
                         }
                       `}
                       >
-                        <div>{idx + 1}</div>
-                        <div className="text-[10px] font-normal leading-none mt-1 opacity-90">
-                          ミス: {puzzleResults[idx]?.mistakes || 0}
-                        </div>
+                        {idx + 1}
                       </div>
                     );
                   })}
@@ -1524,7 +1428,7 @@ export default function App() {
                             <div className="w-[80%] h-[80%] relative pointer-events-none">
                               <PieceView
                                 type={pt as any}
-                                enemy={editPieceInfo.enemy}
+                                enemy={(pt as string) !== "delete" ? editPieceInfo.enemy : false}
                                 selected={false}
                               />
                             </div>
